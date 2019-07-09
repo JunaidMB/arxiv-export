@@ -26,7 +26,15 @@ ui <- fluidPage(
                      start = Sys.Date() - 3, end = Sys.Date() - 2
       ),
       
-      numericInput(inputId = "resultlimits", label = "How many results would you like to return?", value = 10, min = 1, max = 500, step = 1)
+      numericInput(inputId = "resultlimits", label = "How many results would you like to return?", value = 10, min = 1, max = 500, step = 1),
+      
+      textInput(inputId = 'arxiv.email', label = "Enter Email Address Here", placeholder = "jmbutt28@gmail.com"),
+      
+      br(),
+      br(),
+      
+      actionButton(inputId = "arxiv.get.results", label = "Run"),
+      actionButton(inputId = "arxiv.send.email", label = "Send Email")
       
       
     ),
@@ -46,30 +54,55 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  output$table <- renderDataTable({
-    
-    # Input parameters
-    ## Select Categories to search
-    selected_cats <- c(input$subject_select)
-    categories <- paste(selected_cats, collapse = " , ")
-    
-    ## Select date range
-    
-    date_range <- input$dateRange
-    formatted_date_range <- str_c(str_c(gsub("-", "", date_range[[1]]) , "*"), str_c(gsub("-", "", date_range[[2]]) , "*"), sep = " , ")
-    
-    ## Limit
-    limit <- c(input$resultlimits)
-    
-    # Obtain arxiv search results and save them to a Tibble
-    
-    full_results <- as_tibble(arxiv_search(query = glue("cat: ({categories}) AND submittedDate: ({formatted_date_range})"), limit = limit))
-    
-    ## Restrict to only a few columns
-    results <- full_results %>% mutate(submitted = str_sub(submitted, end = 10), authors = str_replace_all(authors, "[|]", " & ")) %>% select(Title = title, Submission_Date = submitted, Authors = authors, PDF_Link = link_pdf, Primary_Category = primary_category)
-    
-    results
-    })
+ observeEvent(input$arxiv.get.results, {
+   # Input parameters
+   ## Select Categories to search
+   selected_cats <- c(input$subject_select)
+   categories <- paste(selected_cats, collapse = " , ")
+   
+   ## Select date range
+   
+   date_range <- input$dateRange
+   formatted_date_range <- str_c(str_c(gsub("-", "", date_range[[1]]) , "*"), str_c(gsub("-", "", date_range[[2]]) , "*"), sep = " , ")
+   
+   ## Limit
+   limit <- c(input$resultlimits)
+   
+   # Obtain arxiv search results and save them to a Tibble
+   
+   full_results <- as_tibble(arxiv_search(query = glue("cat: ({categories}) AND submittedDate: ({formatted_date_range})"), limit = limit))
+   
+   ## Restrict to only a few columns
+   results <- full_results %>% mutate(submitted = str_sub(submitted, end = 10), authors = str_replace_all(authors, "[|]", " & ")) %>% select(Title = title, Submission_Date = submitted, Authors = authors, PDF_Link = link_pdf, Primary_Category = primary_category) 
+ 
+   output$table <- renderDataTable({
+     results
+   })
+   
+   observeEvent(input$arxiv.send.email, {
+     
+     ## Create an HTML table of results
+     msg <- tableHTML(results)
+     
+     ## Add a paragraph before the table
+     html_bod <- str_c("<p> This is your Arxiv export. </p>", msg)
+     
+     ## Create a MIME message and send it
+     email <- input$arxiv.email
+     
+     mime() %>% 
+       to(email) %>% 
+       from("jmbutt28@gmail.com") %>% 
+       subject("Arxiv Export") %>% 
+       html_body(html_bod) %>% 
+       send_message()
+     
+   })
+   
+   
+   }) 
+  
+  
   
 
   
