@@ -75,9 +75,8 @@ server <- function(input, output) {
    ## Restrict to only a few columns
    results <- full_results %>% mutate(submitted = str_sub(submitted, end = 10), authors = str_replace_all(authors, "[|]", " & ")) %>% select(Title = title, Submission_Date = submitted, Authors = authors, PDF_Link = link_pdf, Primary_Category = primary_category) 
  
-   output$table <- renderDataTable({
-     results
-   })
+   output$table <- renderDataTable(
+     expr = results, escape = FALSE)
    
    observeEvent(input$arxiv.send.email, {
      
@@ -85,7 +84,7 @@ server <- function(input, output) {
      msg <- tableHTML(results)
      
      ## Add a paragraph before the table
-     html_bod <- str_c("<p> This is your Arxiv export. </p>", msg)
+     html_bod <- str_c("<p> This is your arXiv export. </p>", msg)
      
      ## Create a MIME message and send it
      email <- input$arxiv.email
@@ -93,7 +92,7 @@ server <- function(input, output) {
      mime() %>% 
        to(email) %>% 
        from("jmbutt28@gmail.com") %>% 
-       subject("Arxiv Export") %>% 
+       subject("arXiv Export") %>% 
        html_body(html_bod) %>% 
        send_message()
      
